@@ -3,6 +3,11 @@ from pydantic import BaseModel
 import pandas as pd
 import joblib
 from typing import List
+import os
+
+# NUEVO: import para MySQL
+import mysql.connector
+from mysql.connector import Error
 
 app = FastAPI(
     title="API de Predicción de mpg",
@@ -14,11 +19,72 @@ app = FastAPI(
 # Cargar modelo y columnas
 # ==============================
 
-model = joblib.load("data/model.pkl")             # cambia a model_mpg.pkl si tu archivo se llama así
+model = joblib.load("data/model.pkl")
 model_cols: List[str] = joblib.load("data/model_columns.pkl")
 
 # Historial simple de predicciones (en memoria)
 prediction_history: List[float] = []
+
+
+# ==============================
+# Config DB (RDS) vía variables de entorno
+# ==============================
+
+DB_HOST = os.getenv("DB_HOST")  # ej: estcom-database-1.culo6uqyoyuk.us-east-1.rds.amazonaws.com
+DB_PORT = int(os.getenv("DB_PORT", "3306"))
+DB_USER = os.getenv("DB_USER")  # ej: admin o el que creaste
+DB_PASS = os.getenv("DB_PASS")
+DB_NAME = os.getenv("DB_NAME", "auto_mpg")
+DB_TABLE = os.getenv("DB_TABLE", "predictions")
+
+
+def insert_prediction_to_db(
+    cylinders: int,
+    horsepower: float,
+    weight: float,
+    origin: str,
+    prediction: float
+):
+    """
+    Inserta una fila en auto_mpg.predictions en RDS.
+    Si no hay config de DB, simplemente no hace nada (para no tronar la API).
+    """
+    if not DB_HOST or not DB_USER or DB_PASS is None:
+        # No hay configuración → no logueamos en DB
+        return
+
+    try:
+        conn = mysql.connector.connect(
+            host=DB_HOST,
+            port=DB_PORT,
+            user=DB_USER,
+            password=DB_PASS,
+            database=DB_NAME
+        )
+        cursor = conn.cursor()
+
+        query = f"""
+        INSERT INTO {DB_TABLE} (cylinders, horsepower, weight, origin, prediction)
+        VALUES (%s, %s, %s, %s, %s)
+        """
+
+        cursor.execute(
+            query,
+            (cylinders, horsepower, weight, origin, prediction)
+        )
+        conn.commit()
+
+    except Error as e:
+        print(f"[WARN] Error al insertar en DB: {e}")
+    finally:
+        try:
+            cursor.close()
+        except Exception:
+            pass
+        try:
+            conn.close()
+        except Exception:
+            pass
 
 
 # ==============================
@@ -40,14 +106,6 @@ class CarFeatures(BaseModel):
 # ==============================
 
 def normalize_origin(origin_value: str) -> str:
-    """
-    Acepta:
-    - "USA", "usa", "UsA", etc.
-    - "Europe", "EUROPE", etc.
-    - "Japan", "japan", etc.
-    - "1", "2", "3" (del dataset original: 1=USA, 2=Europe, 3=Japan)
-    y regresa siempre "USA", "Europe" o "Japan".
-    """
     s = str(origin_value).strip().lower()
 
     # numérica como string
@@ -75,7 +133,7 @@ def normalize_origin(origin_value: str) -> str:
 
 
 # ==============================
-# Endpoint raíz (opcional)
+# Endpoint raíz
 # ==============================
 
 @app.get("/")
@@ -106,7 +164,6 @@ def predict(car: CarFeatures):
     df = pd.DataFrame([data_dict])
 
     # One-Hot Encoding de 'origin' igual que en entrenamiento
-    # (si en tu entrenamiento no se usó origin, esto igual no rompe nada)
     df_encoded = pd.get_dummies(df, columns=["origin"], drop_first=True)
 
     # Reindexar para que las columnas coincidan EXACTAMENTE con las del modelo
@@ -117,6 +174,15 @@ def predict(car: CarFeatures):
 
     # Guardamos en historial en memoria
     prediction_history.append(pred)
+
+    # NUEVO: guardar en RDS
+    insert_prediction_to_db(
+        cylinders=car.cylinders,
+        horsepower=car.horsepower,
+        weight=car.weight,
+        origin=origin_norm,
+        prediction=pred
+    )
 
     return {
         "mpg_prediction": pred,
