@@ -12,7 +12,7 @@ library(arrow)   # para guardar en formato Feather
 
 ```{r carga}
 # Leer el CSV tal como viene
-auto_raw <- read.csv("auto-mpg_clean.csv",
+auto_raw <- read.csv("data/auto-mpg_clean.csv",
                      stringsAsFactors = FALSE)
 
 glimpse(auto_raw)
@@ -114,7 +114,6 @@ origin_counts <- auto_clean |>
 origin_counts
 ```
 
----
 
 ## 3. Análisis bivariado (5 pts)
 
@@ -149,11 +148,8 @@ mpg_por_origin <- auto_clean |>
 mpg_por_origin
 ```
 
-(Esto responde a “relación origin vs mpg” con medias y dispersión por origen.)
 
----
-
-## 4. Gráficos (5 pts)
+## 4. Gráficos
 
 ### 4.1 Boxplot de eficiencia (`mpg`) por origen
 
@@ -183,19 +179,10 @@ ggplot(auto_clean, aes(x = weight, y = mpg, color = origin)) +
   theme_minimal()
 ```
 
----
-
 ## 5. Guardar dataset limpio en formato Feather (5 pts)
 
 ```{r feather}
-write_feather(auto_clean, "auto_mpg_clean_feather.feather")
+write_feather(auto_clean, "data/auto_mpg_clean_feather.feather")
 
-list.files(pattern = "feather$")
+list.files(pattern = "data/feather$")
 ```
-
-Este Rmd:
-
-* Repara el desastre `origin + car_name` en una sola columna.
-* Deja `origin` como factor (`usa`, `europe`, `japan`) y `name` como string limpio.
-* Hace el EDA completo (univariado, bivariado y gráficos).
-* Guarda el dataset limpio en formato Feather como te piden.
