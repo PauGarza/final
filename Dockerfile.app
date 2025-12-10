@@ -1,18 +1,17 @@
-# Imagen base con R + Shiny + shiny-server
 FROM rocker/shiny:latest
 
-# Instalamos los paquetes que usa la app
-# (shiny ya viene en la imagen)
-RUN R -e "install.packages(c('ggplot2', 'dplyr', 'readr', 'arrow'), repos = 'https://cloud.r-project.org')"
-
-# Carpeta donde shiny-server busca las apps por defecto
+# Carpeta donde shiny-server busca apps
 WORKDIR /srv/shiny-server
 
-# Copiamos la app y los datos al contenedor
+# Instalar solo los paquetes que necesitamos (sin arrow)
+RUN install2.r --error --skipinstalled \
+    ggplot2 \
+    dplyr \
+    readr
+
+# Copiar app y datos
 COPY app.R /srv/shiny-server/app.R
 COPY data /srv/shiny-server/data
 
-# Exponemos el puerto 3838 (Shiny por defecto)
+# Shiny escucha en 3838 por default
 EXPOSE 3838
-
-# No hace falta CMD: la imagen rocker/shiny ya arranca shiny-server sola
