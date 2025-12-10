@@ -1,19 +1,14 @@
-# Imagen base de Python ligera
 FROM python:3.11-slim
 
-# Buenas prácticas
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Carpeta de trabajo dentro del contenedor
+# Carpeta de trabajo
 WORKDIR /app
 
-# Dependencias de sistema mínimas (para que scikit-learn/joblib no se quejen)
+# Dependencias del sistema
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Instalar dependencias de Python necesarias para la API
+# Librerías de Python para la API
 RUN pip install --no-cache-dir \
     fastapi \
     "uvicorn[standard]" \
@@ -22,13 +17,11 @@ RUN pip install --no-cache-dir \
     joblib \
     mysql-connector-python
 
-# Copiamos TODO el proyecto (scripts + modelos + feather)
+# Copiamos todo el proyecto (incluye 04main.py y data/)
 COPY . /app
 
-# Exponemos el puerto 80 para la API (requisito del examen)
+# Puerto donde escucha la API dentro del contenedor
 EXPOSE 80
 
-# Comando para levantar FastAPI
-# OJO: si renombraste 04main.py a main.py,
-# cambia "04main:app" por "main:app"
+# OJO: uvicorn como proceso principal, SIN "&"
 CMD ["uvicorn", "04main:app", "--host", "0.0.0.0", "--port", "80"]
