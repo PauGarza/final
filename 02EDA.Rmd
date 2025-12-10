@@ -1,0 +1,201 @@
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+
+library(tidyverse)
+library(arrow)   # para guardar en formato Feather
+```
+
+## 1. Carga de datos y limpieza
+
+### 1.1 Cargar el CSV original
+
+```{r carga}
+# Leer el CSV tal como viene
+auto_raw <- read.csv("auto-mpg_clean.csv",
+                     stringsAsFactors = FALSE)
+
+glimpse(auto_raw)
+```
+
+### 1.2 Renombrar columnas y separar `origin` + `name`
+
+Queremos pasar de eso a:
+
+* `origin` = `"usa"`, `"europe"`, `"japan"`,
+* `name` = nombre del coche con espacios.
+
+```{r limpieza}
+# Aseguramos nombres coherentes para las primeras 8 columnas
+names(auto_raw)[1:8] <- c("mpg", "cylinders", "displacement", "horsepower",
+                          "weight", "acceleration", "model_year", "origin_raw")
+
+# Creamos dataset limpio
+auto <- auto_raw |>
+  mutate(
+    origin_raw = as.character(origin_raw),
+
+    # Código de origen: todo lo que está antes del tab
+    origin_code = sub("\\t.*", "", origin_raw),
+
+    # Nombre crudo: quitamos "numero + tab", queda "chevrolet,chevelle,malibu"
+    name_raw = sub("^[0-9]+\\t", "", origin_raw),
+
+    # Cambiamos comas por espacios y limpiamos espacios extra
+    name = gsub(",", " ", name_raw),
+    name = trimws(tolower(name)),
+
+    # Convertimos origin_code a factor con etiquetas minúsculas
+    origin = factor(
+      as.integer(origin_code),
+      levels = c(1, 2, 3),
+      labels = c("usa", "europe", "japan")
+    ),
+
+    # Aseguramos tipos numéricos importantes
+    horsepower   = as.numeric(horsepower),
+    weight       = as.integer(weight),
+    cylinders    = as.integer(cylinders),
+    model_year   = as.integer(model_year),
+    displacement = as.numeric(displacement),
+    acceleration = as.numeric(acceleration),
+    mpg          = as.numeric(mpg)
+  ) |>
+  # Nos quedamos con las columnas ya limpias y en orden final
+  select(mpg, cylinders, displacement, horsepower,
+         weight, acceleration, model_year, origin, name)
+
+glimpse(auto)
+head(auto)
+```
+
+### 1.3 Dataset para análisis (sin NA en variables clave)
+
+```{r filtro-na}
+auto_clean <- auto |>
+  drop_na(mpg, horsepower, weight, origin)
+
+glimpse(auto_clean)
+```
+
+## 2. Estadísticas univariadas
+
+### 2.1 Variables numéricas
+
+```{r univariadas-num}
+numeric_summary <- auto_clean |>
+  summarise(
+    across(
+      where(is.numeric),
+      list(
+        n      = ~ sum(!is.na(.)),
+        mean   = ~ mean(., na.rm = TRUE),
+        sd     = ~ sd(., na.rm = TRUE),
+        min    = ~ min(., na.rm = TRUE),
+        q1     = ~ quantile(., 0.25, na.rm = TRUE),
+        median = ~ median(., na.rm = TRUE),
+        q3     = ~ quantile(., 0.75, na.rm = TRUE),
+        max    = ~ max(., na.rm = TRUE)
+      ),
+      .names = "{.col}_{.fn}"
+    )
+  )
+
+numeric_summary
+```
+
+### 2.2 Variable categórica `origin`
+
+```{r univariadas-factor}
+origin_counts <- auto_clean |>
+  count(origin) |>
+  mutate(prop = n / sum(n))
+
+origin_counts
+```
+
+---
+
+## 3. Análisis bivariado (5 pts)
+
+### 3.1 Correlaciones numéricas
+
+```{r correlaciones}
+num_vars <- auto_clean |>
+  select(where(is.numeric))
+
+cor_matrix <- cor(num_vars, use = "complete.obs")
+cor_matrix
+```
+
+Correlaciones específicas con `mpg`:
+
+```{r cor-mpg}
+cor_mpg <- cor(num_vars, use = "complete.obs")[, "mpg"]
+cor_mpg
+```
+
+### 3.2 Relación entre `origin` y `mpg`
+
+```{r origin-mpg}
+mpg_por_origin <- auto_clean |>
+  group_by(origin) |>
+  summarise(
+    n        = n(),
+    mpg_mean = mean(mpg, na.rm = TRUE),
+    mpg_sd   = sd(mpg, na.rm = TRUE)
+  )
+
+mpg_por_origin
+```
+
+(Esto responde a “relación origin vs mpg” con medias y dispersión por origen.)
+
+---
+
+## 4. Gráficos (5 pts)
+
+### 4.1 Boxplot de eficiencia (`mpg`) por origen
+
+```{r boxplot-mpg-origin, fig.height=4, fig.width=6}
+ggplot(auto_clean, aes(x = origin, y = mpg, fill = origin)) +
+  geom_boxplot(alpha = 0.7) +
+  labs(
+    title = "Distribución de MPG por Origen",
+    x = "Origen",
+    y = "Eficiencia (mpg)"
+  ) +
+  theme_minimal() +
+  theme(legend.position = "none")
+```
+
+### 4.2 Scatterplot de peso vs eficiencia
+
+```{r scatter-weight-mpg, fig.height=4, fig.width=6}
+ggplot(auto_clean, aes(x = weight, y = mpg, color = origin)) +
+  geom_point(alpha = 0.7) +
+  labs(
+    title = "Peso vs Eficiencia del Combustible",
+    x = "Peso",
+    y = "Eficiencia (mpg)",
+    color = "Origen"
+  ) +
+  theme_minimal()
+```
+
+---
+
+## 5. Guardar dataset limpio en formato Feather (5 pts)
+
+```{r feather}
+write_feather(auto_clean, "auto_mpg_clean_feather.feather")
+
+list.files(pattern = "feather$")
+```
+
+Este Rmd:
+
+* Repara el desastre `origin + car_name` en una sola columna.
+* Deja `origin` como factor (`usa`, `europe`, `japan`) y `name` como string limpio.
+* Hace el EDA completo (univariado, bivariado y gráficos).
+* Guarda el dataset limpio en formato Feather como te piden.
