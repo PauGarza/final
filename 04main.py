@@ -5,7 +5,7 @@ import joblib
 from typing import List
 import os
 
-# NUEVO: import para MySQL
+# MySQL
 import mysql.connector
 from mysql.connector import Error
 
@@ -30,11 +30,11 @@ prediction_history: List[float] = []
 # Config DB (RDS) vía variables de entorno
 # ==============================
 
-DB_HOST = os.getenv("DB_HOST")  # ej: estcom-database-1.culo6uqyoyuk.us-east-1.rds.amazonaws.com
+DB_HOST = os.getenv("DB_HOST", "estcom-database-1.culo6uqyoyuk.us-east-1.rds.amazonaws.com")
 DB_PORT = int(os.getenv("DB_PORT", "3306"))
-DB_USER = os.getenv("DB_USER")  # ej: admin o el que creaste
-DB_PASS = os.getenv("DB_PASS")
-DB_NAME = os.getenv("DB_NAME", "auto_mpg")
+DB_USER = os.getenv("DB_USER", "admin")
+DB_PASS = os.getenv("DB_PASS")  # mejor sin default, para no hardcodear el password
+DB_NAME = os.getenv("DB_NAME", "estcom_db")
 DB_TABLE = os.getenv("DB_TABLE", "predictions")
 
 
@@ -46,11 +46,11 @@ def insert_prediction_to_db(
     prediction: float
 ):
     """
-    Inserta una fila en auto_mpg.predictions en RDS.
+    Inserta una fila en <DB_NAME>.<DB_TABLE> en RDS.
     Si no hay config de DB, simplemente no hace nada (para no tronar la API).
     """
-    if not DB_HOST or not DB_USER or DB_PASS is None:
-        # No hay configuración → no logueamos en DB
+    # Si no hay password, asumimos que no queremos conectar a DB
+    if not DB_HOST or not DB_USER or DB_PASS is None or not DB_NAME:
         return
 
     try:
@@ -175,7 +175,7 @@ def predict(car: CarFeatures):
     # Guardamos en historial en memoria
     prediction_history.append(pred)
 
-    # NUEVO: guardar en RDS
+    # Guardar en RDS (no truena la API si falla)
     insert_prediction_to_db(
         cylinders=car.cylinders,
         horsepower=car.horsepower,
