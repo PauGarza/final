@@ -15,7 +15,7 @@ year_max <- max(data_all$model_year, na.rm = TRUE)
 mpg_min  <- floor(min(data_all$mpg, na.rm = TRUE))
 mpg_max  <- ceiling(max(data_all$mpg, na.rm = TRUE))
 
-cyl_vals <- sort(unique(data_all$cylinders))
+cyl_vals    <- sort(unique(data_all$cylinders))
 origin_vals <- sort(unique(data_all$origin))
 
 # ============================
@@ -74,10 +74,7 @@ ui <- fluidPage(
         "origin_filter", "Origen:",
         choices = origin_vals,
         selected = origin_vals
-      ),
-
-      hr(),
-      downloadButton("download_filtered", "Descargar datos filtrados")
+      )
     ),
 
     mainPanel(
@@ -174,29 +171,4 @@ server <- function(input, output, session) {
         `mpg promedio`        = mean(mpg, na.rm = TRUE),
         `peso promedio`       = mean(weight, na.rm = TRUE),
         `hp promedio`         = mean(horsepower, na.rm = TRUE),
-        `cilindrada promedio` = mean(displacement, na.rm = TRUE)
-      ) %>%
-      round(2)
-  })
-
-  # --------------------------
-  # Vista rápida de los datos
-  # --------------------------
-  output$headTable <- renderTable({
-    head(filtered_data(), 10)
-  })
-
-  # --------------------------
-  # Descargar CSV filtrado
-  # --------------------------
-  output$download_filtered <- downloadHandler(
-    filename = function() {
-      paste0("auto_mpg_filtrado_", Sys.Date(), ".csv")
-    },
-    content = function(file) {
-      write.csv(filtered_data(), file, row.names = FALSE)
-    }
-  )
-}
-
-shinyApp(ui = ui, server = server)
+        `cilindrada promedio`
