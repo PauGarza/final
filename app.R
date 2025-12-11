@@ -171,4 +171,17 @@ server <- function(input, output, session) {
         `mpg promedio`        = mean(mpg, na.rm = TRUE),
         `peso promedio`       = mean(weight, na.rm = TRUE),
         `hp promedio`         = mean(horsepower, na.rm = TRUE),
-        `cilindrada promedio`
+        `cilindrada promedio` = mean(displacement, na.rm = TRUE)
+      ) %>%
+      round(2)
+  })
+
+  # --------------------------
+  # Vista rápida de los datos
+  # --------------------------
+  output$headTable <- renderTable({
+    head(filtered_data(), 10)
+  })
+}
+
+shinyApp(ui = ui, server = server)
