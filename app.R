@@ -6,9 +6,29 @@ library(dplyr)
 library(arrow)
 
 # --------------------------------------------------------------------
-# Cargar datos (ajusta la ruta si es necesario)
+# Cargar datos (intentando varias rutas posibles al feather)
 # --------------------------------------------------------------------
-auto_mpg <- read_feather("data/clean/auto_mpg_clean_feather.feather")
+load_auto_mpg <- function() {
+  posibles_rutas <- c(
+    "data/clean/auto_mpg.feather",
+    "data/auto_mpg_clean_feather.feather",
+    "data/auto_mpg.feather"
+  )
+
+  for (ruta in posibles_rutas) {
+    if (file.exists(ruta)) {
+      message("Leyendo datos desde: ", ruta)
+      return(read_feather(ruta))
+    }
+  }
+
+  stop(
+    "No se encontró el archivo feather. Se probaron estas rutas: ",
+    paste(posibles_rutas, collapse = ", ")
+  )
+}
+
+auto_mpg <- load_auto_mpg()
 
 auto_mpg$origin    <- as.factor(auto_mpg$origin)
 auto_mpg$cylinders <- as.factor(auto_mpg$cylinders)
@@ -36,7 +56,7 @@ ui <- fluidPage(
       checkboxGroupInput(
         inputId = "cyl_filter",
         label   = "Cilindros",
-        choices = sort(unique(auto_mpg$cylinders)),
+        choices  = sort(unique(auto_mpg$cylinders)),
         selected = sort(unique(auto_mpg$cylinders))
       ),
       
@@ -45,10 +65,10 @@ ui <- fluidPage(
         inputId = "xaxis",
         label   = "Variable en eje X",
         choices = c(
-          "Peso"              = "weight",
-          "Caballos de fuerza"= "horsepower",
-          "Cilindrada"        = "displacement",
-          "Año del modelo"    = "model_year"
+          "Peso"               = "weight",
+          "Caballos de fuerza" = "horsepower",
+          "Cilindrada"         = "displacement",
+          "Año del modelo"     = "model_year"
         ),
         selected = "weight"
       ),
@@ -68,7 +88,7 @@ ui <- fluidPage(
     mainPanel(
       tabsetPanel(
         tabPanel("Dispersión", plotOutput("mainPlot")),
-        tabPanel("Resumen", tableOutput("summaryTable"))
+        tabPanel("Resumen",   tableOutput("summaryTable"))
       )
     )
   )
