@@ -1,14 +1,15 @@
 FROM rocker/shiny:latest
 
+# Carpeta por defecto de shiny-server
 WORKDIR /srv/shiny-server
 
-# Solo los paquetes que usamos
+# Instalar paquetes necesarios, incluyendo arrow
 RUN install2.r --error --skipinstalled \
     ggplot2 \
     dplyr \
-    readr
+    arrow
 
-# Copiamos app y datos
+# Copiar app y datos
 COPY app.R /srv/shiny-server/app.R
 COPY data /srv/shiny-server/data
 

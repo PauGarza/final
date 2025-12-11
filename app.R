@@ -1,7 +1,7 @@
 library(shiny)
 library(ggplot2)
-library(readr)
 library(dplyr)
+library(arrow)
 
 ui <- fluidPage(
   titlePanel("Auto MPG Explorer"),
@@ -20,8 +20,8 @@ ui <- fluidPage(
 
 server <- function(input, output) {
 
-  # Leemos el CSV (ya NO usamos arrow ni feather)
-  data <- readr::read_csv("data/auto_mpg.csv", show_col_types = FALSE)
+  # Leemos el feather directamente
+  data <- arrow::read_feather("data/auto_mpg.feather")
 
   output$mainPlot <- renderPlot({
     ggplot(data, aes_string(x = input$xaxis, y = "mpg", color = input$color)) +
